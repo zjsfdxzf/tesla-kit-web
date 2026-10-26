@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Tesla Kit · 车机网页导航</title>
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --bg-card: #16161a;
+    --bg-card-hover: #1e1e24;
+    --border: #2a2a32;
+    --text: #f0f0f2;
+    --text-dim: #8a8a94;
+    --accent: #e82127;
+    --accent-soft: rgba(232, 33, 39, 0.12);
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ===== 顶部栏 ===== */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,12,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .logo {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
+    white-space: nowrap; cursor: pointer;
+  }
+  .logo span { color: var(--accent); }
+  .url-bar {
+    flex: 1; display: flex; gap: 8px; max-width: 640px;
+  }
+  .url-bar input {
+    flex: 1; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-size: 15px; outline: none; transition: border-color .2s;
+  }
+  .url-bar input:focus { border-color: var(--accent); }
+  .url-bar input::placeholder { color: var(--text-dim); }
+  .btn {
+    background: var(--bg-card); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 16px; border-radius: 10px;
+    font-size: 14px; cursor: pointer; white-space: nowrap;
+    transition: all .15s;
+  }
+  .btn:hover, .btn:active { background: var(--bg-card-hover); border-color: #3a3a44; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-primary:hover { background: #c91d23; }
+  .clock { margin-left: auto; font-size: 14px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ===== 主内容 ===== */
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .section-title {
+    font-size: 13px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px; margin: 28px 0 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  /* 最近使用 */
+  .recent-row {
+    display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  .recent-row::-webkit-scrollbar { display: none; }
+  .recent-chip {
+    flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 100px; padding: 8px 16px; cursor: pointer;
+    font-size: 14px; transition: all .15s;
+  }
+  .recent-chip:hover { background: var(--bg-card-hover); border-color: #3a3a44; }
+  .recent-chip .favicon { width: 18px; height: 18px; border-radius: 4px; background: #333; }
+
+  /* 分类导航网格 */
+  .category { margin-bottom: 8px; }
+  .category-label {
+    font-size: 15px; font-weight: 700; margin: 20px 0 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .category-label .icon { font-size: 18px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .app-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 14px;
+    cursor: pointer; transition: all .15s;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    text-align: center; min-height: 90px; justify-content: center;
+  }
+  .app-card:hover { background: var(--bg-card-hover); border-color: #3a3a44; transform: translateY(-1px); }
+  .app-card .favicon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700; color: #fff;
+  }
+  .app-card .name { font-size: 13px; color: var(--text); line-height: 1.3; }
+
+  /* ===== 画板页 ===== */
+  .board-page { display: none; position: fixed; inset: 0; background: #1a1a1e; z-index: 200; flex-direction: column; }
+  .board-page.active { display: flex; }
+  .board-toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+    background: var(--bg-card); border-bottom: 1px solid var(--border);
+  }
+  .board-toolbar .title { font-size: 16px; font-weight: 700; margin-right: auto; }
+  .color-dot {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform .1s;
+  }
+  .color-dot.active { border-color: #fff; transform: scale(1.15); }
+  .board-canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+  canvas#board { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+  /* ===== 全屏跳转预览页 ===== */
+  .go-page { display: none; text-align: center; padding: 80px 24px; }
+  .go-page.active { display: block; }
+  .go-page h2 { font-size: 22px; margin-bottom: 12px; }
+  .go-page p { color: var(--text-dim); font-size: 15px; line-height: 1.6; margin-bottom: 24px; word-break: break-all; }
+  .go-page .btn { font-size: 16px; padding: 12px 28px; }
+
+  /* ===== 添加自定义弹窗 ===== */
+  .modal-mask {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 300; align-items: center; justify-content: center;
+  }
+  .modal-mask.active { display: flex; }
+  .modal {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; width: 90%; max-width: 420px;
+  }
+  .modal h3 { font-size: 18px; margin-bottom: 16px; }
+  .modal input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-size: 14px; margin-bottom: 10px; outline: none;
+  }
+  .modal input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .modal-actions .btn { flex: 1; }
+
+  /* ===== 底部导航 ===== */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,12,0.95); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: center; gap: 8px; padding: 10px 20px 14px;
+    z-index: 100;
+  }
+  .bottom-nav .btn { font-size: 14px; }
+
+  /* 车机大屏适配 */
+  @media (min-width: 1400px) {
+    .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+    .app-card { padding: 20px 16px; min-height: 110px; }
+    .app-card .favicon { width: 48px; height: 48px; font-size: 24px; }
+    .app-card .name { font-size: 14px; }
+  }
+
+  /* ===== 乘客看视频页 ===== */
+  .passenger-page { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 200; flex-direction: column; }
+  .passenger-page.active { display: flex; }
+  .passenger-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+  .qr-box {
+    background: #fff; padding: 24px; border-radius: 16px; margin: 20px 0;
+  }
+  .status-badge {
+    padding: 8px 20px; border-radius: 100px; font-size: 14px; font-weight: 600;
+    background: var(--bg-card); border: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .status-badge.connected { background: rgba(46,213,115,0.15); border-color: #2ed573; color: #2ed573; }
+  .status-badge.waiting { background: rgba(255,165,2,0.15); border-color: #ffa502; color: #ffa502; }
+  .video-frame { flex: 1; width: 100%; border: none; background: #000; border-radius: 12px; margin-top: 16px; }
+  .phone-input-bar {
+    display: flex; gap: 8px; padding: 16px 24px; background: var(--bg-card);
+    border-top: 1px solid var(--border); position: sticky; bottom: 0;
+  }
+  .phone-input-bar input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 15px; outline: none;
+  }
+  .phone-input-bar input:focus { border-color: var(--accent); }
+  .playlist { width: 100%; max-width: 500px; margin-top: 16px; }
+  .playlist-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 8px; font-size: 14px; cursor: pointer;
+  }
+  .playlist-item:hover { background: var(--bg-card-hover); }
+  .playlist-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<div class="topbar">
+  <div class="logo" onclick="goHome()">Tesla<span>Kit</span></div>
+  <div class="url-bar">
+    <input type="text" id="urlInput" placeholder="输入网址，回车全屏打开…" onkeydown="if(event.key==='Enter')quickGo()">
+    <button class="btn btn-primary" onclick="quickGo()">打开</button>
+  </div>
+  <div class="clock" id="clock"></div>
+</div>
+
+<!-- 主页面 -->
+<div class="container" id="homePage">
+  <!-- 最近使用 -->
+  <div class="section-title">最近使用</div>
+  <div class="recent-row" id="recentRow">
+    <span style="color:var(--text-dim);font-size:13px;padding:8px 0;">暂无记录</span>
+  </div>
+
+  <!-- 分类导航 -->
+  <div id="navContainer"></div>
+
+  <div style="height:100px;"></div>
+</div>
+
+<!-- 全屏跳转预览页 -->
+<div class="go-page" id="goPage">
+  <h2 id="goTitle">正在跳转</h2>
+  <p id="goDesc"></p>
+  <button class="btn btn-primary" onclick="doGo()">立即打开</button>
+</div>
+
+<!-- 画板页 -->
+<div class="board-page" id="boardPage">
+  <div class="board-toolbar">
+    <span class="title">画板</span>
+    <div class="color-dot active" style="background:#ffffff" data-color="#ffffff" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#ff4757" data-color="#ff4757" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#ffa502" data-color="#ffa502" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#2ed573" data-color="#2ed573" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#1e90ff" data-color="#1e90ff" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#ff6b81" data-color="#ff6b81" onclick="setColor(this)"></div>
+    <button class="btn" onclick="clearBoard()">清空</button>
+    <button class="btn" onclick="closeBoard()">关闭</button>
+  </div>
+  <div class="board-canvas-wrap"><canvas id="board"></canvas></div>
+</div>
+
+<!-- 乘客看视频页 -->
+<div class="passenger-page" id="passengerPage">
+  <!-- 视频网站列表 -->
+  <div class="passenger-wrap" id="videoListMode">
+    <h2 style="font-size:22px;margin-bottom:8px;">📺 乘客视频专区</h2>
+    <p style="color:var(--text-dim);font-size:14px;margin-bottom:24px;">选择视频网站，在车机大屏内打开播放</p>
+    <div class="grid" id="videoNavGrid" style="max-width:900px;"></div>
+    <button class="btn" style="margin-top:28px" onclick="exitPassenger()">返回首页</button>
+  </div>
+  <!-- iframe 播放模式 -->
+  <div class="passenger-wrap" id="videoPlayMode" style="display:none;flex-direction:column;padding:0;">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--bg-card);border-bottom:1px solid var(--border);width:100%;">
+      <button class="btn" onclick="showVideoList()">← 返回列表</button>
+      <span id="videoPlayTitle" style="font-size:15px;font-weight:600;flex:1;"></span>
+    </div>
+    <iframe id="videoIframe" style="flex:1;width:100%;border:none;background:#000;" allowfullscreen allow="autoplay; encrypted-media; fullscreen; storage-access; picture-in-picture"></iframe>
+    <div id="iframeFallback" style="display:none;padding:20px;text-align:center;">
+      <p style="color:var(--text-dim);margin-bottom:16px;">iframe 加载失败（可能是网站反爬保护）</p>
+      <button class="btn btn-primary" onclick="openInNewTab()">在新标签页打开</button>
+    </div>
+  </div>
+</div>
+
+<!-- 添加自定义弹窗 -->
+<div class="modal-mask" id="addModal">
+  <div class="modal">
+    <h3>添加自定义网址</h3>
+    <input type="text" id="addName" placeholder="名称，如：哔哩哔哩">
+    <input type="text" id="addUrl" placeholder="网址，如：https://www.bilibili.com">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="addCustom()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 底部导航 -->
+<div class="bottom-nav">
+  <button class="btn" onclick="openBoard()">🎨 画板</button>
+  <button class="btn" onclick="openPassenger()">📺 乘客看视频</button>
+  <button class="btn" onclick="openModal()">＋ 添加网址</button>
+</div>
+
+<script>
+/* ============================================================
+ *  核心机制继承自 BetterTeslaBookmarks (GitLab: T4cC0re/betterbookmarks)
+ *  - localStorage 持久化书签/历史
+ *  - 全屏 trick：通过 youtube.com/redirect 跳转，利用 Tesla 浏览器
+ *    打开 YouTube 链接时自动全屏的特性
+ *  ============================================================ */
+
+// ===== 默认导航数据 =====
+const DEFAULT_NAV = [
+  {
+    label: '视频娱乐', icon: '🎬',
+    items: [
+      { name: '哔哩哔哩', url: 'https://www.bilibili.com', color: '#fb7299' },
+      { name: 'YouTube', url: 'https://www.youtube.com', color: '#ff0000' },
+      { name: '爱奇艺', url: 'https://www.iqiyi.com', color: '#00be06' },
+      { name: '优酷', url: 'https://www.youku.com', color: '#1989e6' },
+      { name: '腾讯视频', url: 'https://v.qq.com', color: '#ff6022' },
+      { name: 'Netflix', url: 'https://www.netflix.com', color: '#e50914' },
+    ]
+  },
+  {
+    label: '音乐电台', icon: '🎵',
+    items: [
+      { name: '网易云音乐', url: 'https://music.163.com', color: '#e60026' },
+      { name: 'QQ音乐', url: 'https://y.qq.com', color: '#31c27c' },
+      { name: '酷狗音乐', url: 'https://www.kugou.com', color: '#2e7ded' },
+      { name: 'Spotify', url: 'https://open.spotify.com', color: '#1db954' },
+    ]
+  },
+  {
+    label: '出行导航', icon: '🗺️',
+    items: [
+      { name: '高德地图', url: 'https://www.amap.com', color: '#00a6fb' },
+      { name: '百度地图', url: 'https://map.baidu.com', color: '#27b362' },
+      { name: '天气', url: 'https://www.weather.com.cn', color: '#ff9800' },
+      { name: '国家电网', url: 'https://www.sgcc.com.cn', color: '#d32f2f' },
+    ]
+  },
+  {
+    label: '生活工具', icon: '🔧',
+    items: [
+      { name: '百度', url: 'https://www.baidu.com', color: '#306eff' },
+      { name: '翻译', url: 'https://translate.google.com', color: '#4285f4' },
+      { name: '计算器', url: 'https://www.google.com/search?q=calculator', color: '#607d8b' },
+      { name: 'GitHub', url: 'https://github.com', color: '#24292e' },
+    ]
+  },
+  {
+    label: '乘客娱乐', icon: '🎮',
+    items: [
+      { name: '网页游戏', url: 'https://poki.com', color: '#7c4dff' },
+      { name: '微信读书', url: 'https://weread.qq.com', color: '#07c160' },
+      { name: '知乎', url: 'https://www.zhihu.com', color: '#0084ff' },
+      { name: '微博', url: 'https://weibo.com', color: '#e6162d' },
+    ]
+  },
+];
+
+// ===== 状态 =====
+let customItems = JSON.parse(localStorage.getItem('tk_custom') || '[]');
+let history = JSON.parse(localStorage.getItem('tk_history') || '[]');
+let pendingGo = null; // 待跳转的 {url, name, fullscreen}
+
+// ===== 工具函数 =====
+function faviconLetter(name) {
+  return name.charAt(0).toUpperCase();
+}
+
+function recordHistory(name, url) {
+  history = history.filter(h => h.url !== url);
+  history.unshift({ name, url, ts: Date.now() });
+  history = history.slice(0, 8);
+  localStorage.setItem('tk_history', JSON.stringify(history));
+  renderRecent();
+}
+
+// ===== 渲染导航 =====
+function renderNav() {
+  const container = document.getElementById('navContainer');
+  container.innerHTML = '';
+  DEFAULT_NAV.forEach(cat => {
+    const sec = document.createElement('div');
+    sec.className = 'category';
+    let html = `<div class="category-label"><span class="icon">${cat.icon}</span>${cat.label}</div><div class="grid">`;
+    cat.items.forEach(item => {
+      html += `
+        <div class="app-card" onclick="openLink('${item.url}','${item.name}')">
+          <div class="favicon" style="background:${item.color}">${faviconLetter(item.name)}</div>
+          <div class="name">${item.name}</div>
+        </div>`;
+    });
+    // 自定义项追加到最后一个分类
+    sec.innerHTML = html + '</div>';
+    container.appendChild(sec);
+  });
+
+  // 自定义网址
+  if (customItems.length) {
+    const sec = document.createElement('div');
+    sec.className = 'category';
+    let html = `<div class="category-label"><span class="icon">⭐</span>我的收藏</div><div class="grid">`;
+    customItems.forEach((item, idx) => {
+      html += `
+        <div class="app-card" onclick="openLink('${item.url}','${item.name}')">
+          <div class="favicon" style="background:#555">${faviconLetter(item.name)}</div>
+          <div class="name">${item.name}</div>
+        </div>`;
+    });
+    sec.innerHTML = html + '</div>';
+    container.appendChild(sec);
+  }
+}
+
+// ===== 渲染最近使用 =====
+function renderRecent() {
+  const row = document.getElementById('recentRow');
+  if (!history.length) {
+    row.innerHTML = '<span style="color:var(--text-dim);font-size:13px;padding:8px 0;">暂无记录</span>';
+    return;
+  }
+  row.innerHTML = '';
+  history.forEach(h => {
+    const chip = document.createElement('div');
+    chip.className = 'recent-chip';
+    chip.innerHTML = `<div class="favicon" style="background:#444">${faviconLetter(h.name)}</div>${h.name}`;
+    chip.onclick = () => openLink(h.url, h.name);
+    row.appendChild(chip);
+  });
+}
+
+// ===== 打开链接（全屏 trick）=====
+// 继承自 BetterTeslaBookmarks：通过 youtube.com/redirect 跳转触发 Tesla 浏览器全屏
+function openLink(url, name) {
+  recordHistory(name, url);
+  // 构造全屏跳转中间页 URL（hash 路由）
+  window.location.hash = `go=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}&fullscreen=1`;
+}
+
+// ===== 处理 hash 路由 =====
+function handleHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) { showHome(); return; }
+  const params = new URLSearchParams(hash);
+
+  if (params.get('go')) {
+    const url = params.get('go');
+    const name = params.get('name') || '网页';
+    const fullscreen = !!params.get('fullscreen');
+    pendingGo = { url, name, fullscreen };
+    showGoPage(url, name, fullscreen);
+  } else if (params.get('board')) {
+    showBoard();
+  } else if (params.get('passenger') === 'host') {
+    showPassengerHost();
+  } else {
+    showHome();
+  }
+}
+
+function showHome() {
+  document.getElementById('homePage').style.display = '';
+  document.getElementById('goPage').classList.remove('active');
+  document.getElementById('boardPage').classList.remove('active');
+  document.getElementById('passengerPage').classList.remove('active');
+}
+
+function showGoPage(url, name, fullscreen) {
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('goPage').classList.add('active');
+  document.getElementById('boardPage').classList.remove('active');
+  document.getElementById('goTitle').textContent = `即将打开 ${name}`;
+  document.getElementById('goDesc').textContent = fullscreen
+    ? `将通过全屏模式打开：${url}\n（利用 Tesla 浏览器自动全屏 YouTube 链接的特性）`
+    : `将打开：${url}`;
+}
+
+function goHome() {
+  window.location.hash = '';
+  showHome();
+}
+
+// ===== 执行跳转（继承 BetterTeslaBookmarks 的 youtube redirect trick）=====
+function doGo() {
+  if (!pendingGo) return;
+  let url = pendingGo.url;
+  if (pendingGo.fullscreen) {
+    // 核心 trick：youtube.com/redirect 会被 Tesla 浏览器识别并全屏
+    url = `https://www.youtube.com/redirect?q=${encodeURIComponent(url)}`;
+  }
+  window.location.href = url;
+}
+
+// ===== 顶部 URL 快捷栏 =====
+function quickGo() {
+  const input = document.getElementById('urlInput');
+  let url = input.value.trim();
+  if (!url) return;
+  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  const name = url.replace(/^https?:\/\//, '').split('/')[0];
+  openLink(url, name);
+  input.value = '';
+}
+
+// ===== 画板 =====
+let boardCtx = null, boardDrawing = false, boardColor = '#ffffff';
+
+function openBoard() { window.location.hash = 'board=1'; }
+function closeBoard() { goHome(); }
+function showBoard() {
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('goPage').classList.remove('active');
+  document.getElementById('boardPage').classList.add('active');
+  setTimeout(initBoard, 50);
+}
+function setColor(el) {
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  boardColor = el.dataset.color;
+}
+function initBoard() {
+  const canvas = document.getElementById('board');
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  boardCtx = canvas.getContext('2d');
+  boardCtx.fillStyle = '#1a1a1e';
+  boardCtx.fillRect(0, 0, canvas.width, canvas.height);
+  boardCtx.lineWidth = 4;
+  boardCtx.lineCap = 'round';
+  boardCtx.lineJoin = 'round';
+}
+function clearBoard() {
+  if (!boardCtx) return;
+  boardCtx.fillStyle = '#1a1a1e';
+  boardCtx.fillRect(0, 0, canvas.width, canvas.height);
+}
+function boardPos(e) {
+  const canvas = document.getElementById('board');
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+}
+function boardStart(e) {
+  e.preventDefault();
+  boardDrawing = true;
+  const p = boardPos(e);
+  boardCtx.beginPath();
+  boardCtx.moveTo(p.x, p.y);
+}
+function boardMove(e) {
+  if (!boardDrawing || !boardCtx) return;
+  e.preventDefault();
+  const p = boardPos(e);
+  boardCtx.strokeStyle = boardColor;
+  boardCtx.lineTo(p.x, p.y);
+  boardCtx.stroke();
+}
+function boardEnd() { boardDrawing = false; }
+
+// ===== 自定义添加 =====
+function openModal() { document.getElementById('addModal').classList.add('active'); }
+function closeModal() {
+  document.getElementById('addModal').classList.remove('active');
+  document.getElementById('addName').value = '';
+  document.getElementById('addUrl').value = '';
+}
+function addCustom() {
+  const name = document.getElementById('addName').value.trim();
+  let url = document.getElementById('addUrl').value.trim();
+  if (!name || !url) return;
+  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  customItems.push({ name, url });
+  localStorage.setItem('tk_custom', JSON.stringify(customItems));
+  closeModal();
+  renderNav();
+}
+
+// ===== 时钟 =====
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${h}:${m}`;
+}
+
+// ===== 绑定画板事件 =====
+const canvas = document.getElementById('board');
+canvas.addEventListener('mousedown', boardStart);
+canvas.addEventListener('mousemove', boardMove);
+canvas.addEventListener('mouseup', boardEnd);
+canvas.addEventListener('mouseleave', boardEnd);
+canvas.addEventListener('touchstart', boardStart, { passive: false });
+canvas.addEventListener('touchmove', boardMove, { passive: false });
+canvas.addEventListener('touchend', boardEnd);
+
+// ===== 乘客看视频（视频导航专区）=====
+const VIDEO_SITES = [
+  { name: '哔哩哔哩', url: 'https://www.bilibili.com', color: '#fb7299' },
+  { name: 'YouTube', url: 'https://www.youtube.com', color: '#ff0000' },
+  { name: '爱奇艺', url: 'https://www.iqiyi.com', color: '#00be06' },
+  { name: '腾讯视频', url: 'https://v.qq.com', color: '#ff6022' },
+  { name: '优酷', url: 'https://www.youku.com', color: '#1989e6' },
+  { name: '芒果TV', url: 'https://www.mgtv.com', color: '#ffce00' },
+  { name: 'Netflix', url: 'https://www.netflix.com', color: '#e50914' },
+  { name: 'Disney+', url: 'https://www.disneyplus.com', color: '#113ccf' },
+  { name: 'B站番剧', url: 'https://www.bilibili.com/anime', color: '#fb7299' },
+  { name: 'B站电影', url: 'https://www.bilibili.com/movie', color: '#ff6b81' },
+  { name: '毒舌电影', url: 'https://www.dushe03.com', color: '#8b5cf6' },
+  { name: '豆瓣电影', url: 'https://movie.douban.com', color: '#2e963d' },
+  { name: '腾讯动漫', url: 'https://ac.qq.com', color: '#ff6022' },
+];
+
+function openPassenger() { window.location.hash = 'passenger=host'; }
+function exitPassenger() { goHome(); }
+
+function showVideoList() {
+  document.getElementById('videoListMode').style.display = '';
+  document.getElementById('videoPlayMode').style.display = 'none';
+  document.getElementById('videoIframe').src = 'about:blank';
+}
+
+function playInIframe(url, name) {
+  document.getElementById('videoListMode').style.display = 'none';
+  document.getElementById('videoPlayMode').style.display = '';
+  document.getElementById('videoPlayTitle').textContent = name;
+  document.getElementById('iframeFallback').style.display = 'none';
+  const frame = document.getElementById('videoIframe');
+  frame.style.display = '';
+  frame.src = url;
+  currentPlayUrl = url;
+  recordHistory(name, url);
+  // 8秒后如果 iframe 还在加载白屏，显示备用按钮
+  clearTimeout(iframeCheckTimer);
+  iframeCheckTimer = setTimeout(() => {
+    try {
+      // 跨域 iframe 无法读取内容，用一个简单的启发式：检查 frame 的 src 是否还在加载
+      // 如果跨域无法访问 contentDocument，说明网站可能正常加载了
+      const doc = frame.contentDocument;
+      if (!doc) return; // 跨域，正常加载了
+      if (doc.body && doc.body.innerHTML.length < 100) {
+        frame.style.display = 'none';
+        document.getElementById('iframeFallback').style.display = '';
+      }
+    } catch(e) {
+      // 跨域异常 = 网站正常加载了，不做处理
+    }
+  }, 6000);
+}
+
+let currentPlayUrl = '';
+let iframeCheckTimer = null;
+
+function openInNewTab() {
+  if (currentPlayUrl) window.open(currentPlayUrl, '_blank');
+}
+
+function showPassengerHost() {
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('goPage').classList.remove('active');
+  document.getElementById('boardPage').classList.remove('active');
+  document.getElementById('passengerPage').classList.add('active');
+  showVideoList();
+  // 渲染视频网站网格
+  const grid = document.getElementById('videoNavGrid');
+  grid.innerHTML = '';
+  VIDEO_SITES.forEach(site => {
+    const card = document.createElement('div');
+    card.className = 'app-card';
+    card.innerHTML = `
+      <div class="favicon" style="background:${site.color}">${site.name.charAt(0)}</div>
+      <div class="name">${site.name}</div>`;
+    card.onclick = () => playInIframe(site.url, site.name);
+    grid.appendChild(card);
+  });
+}
+
+// ===== 启动 =====
+renderNav();
+renderRecent();
+updateClock();
+setInterval(updateClock, 10000);
+window.addEventListener('hashchange', handleHash);
+handleHash();
+</script>
+</body>
+</html>
